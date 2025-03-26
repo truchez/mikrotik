@@ -1,0 +1,8 @@
+:if ($leaseBound = "1") do={
+global telegramMessage "$"lease-hostname" ($leaseActMAC) got router_A address $leaseActIP from DHCP-Server"
+:execute "Envia_mensaje_telegram";
+}
+:if ($leaseBound = "0") do={
+global telegramMessage "$"lease-hostname" ($leaseActMAC) remove routrer_A address $leaseActIP from DHCP-Server"
+:execute "Envia_mensaje_telegram";
+}
