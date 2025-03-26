@@ -1,0 +1,61 @@
+:global lastProcessedLog; # Variable global para almacenar el último log procesado
+
+:while (true) do={
+    # Encuentra todos los logs que contengan "logged in"
+    :local logs [/log find where message~"logged in"];
+
+    # Verifica si hay logs válidos
+    :if ([:len $logs] > 0) do={
+        # Toma el último log de la lista
+        :local lastLog [:pick $logs ([:len $logs] - 1)];
+
+        # Verifica si el identificador del log es válido y si no ha sido procesado
+        :if ([:len $lastLog] > 0 && $lastLog != $lastProcessedLog) do={
+            :log info ("Nuevo inicio de sesión detectado. Último log: " . $lastLog);
+
+            # Actualiza la variable global con el nuevo log procesado
+            :set lastProcessedLog $lastLog;
+
+            # Obtiene el mensaje del log
+            :local logMessage [/log get $lastLog message];
+
+            # Extrae el nombre de usuario (antes de "logged in")
+            :local username [:pick $logMessage 0 [:find $logMessage " logged"]];
+
+            # Extrae la dirección IP (después de "from ")
+            :local ip [:pick $logMessage ([:find $logMessage "from "] + 5) [:find $logMessage " via"]];
+
+            # Construye el mensaje para enviar
+            :local message ("Usuario: " . $username . " se ha conectado desde la IP: " . $ip. " al router_A");
+
+            # Codifica caracteres especiales manualmente
+            :local encodedMessage "";
+            :for i from=0 to=([:len $message] - 1) do={
+                :local char [:pick $message $i];
+                :if ($char = " ") do={ :set encodedMessage ($encodedMessage . "%20"); } else={
+                    :if ($char = "ñ") do={ :set encodedMessage ($encodedMessage . "%C3%B1"); } else={
+                        :if ($char = "á") do={ :set encodedMessage ($encodedMessage . "%C3%A1"); } else={
+                            :if ($char = "é") do={ :set encodedMessage ($encodedMessage . "%C3%A9"); } else={
+                                :if ($char = "í") do={ :set encodedMessage ($encodedMessage . "%C3%AD"); } else={
+                                    :if ($char = "ó") do={ :set encodedMessage ($encodedMessage . "%C3%B3"); } else={
+                                        :if ($char = "ú") do={ :set encodedMessage ($encodedMessage . "%C3%BA"); } else={
+                                            :set encodedMessage ($encodedMessage . $char);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Envía el mensaje a Telegram
+            :local token "token_id";
+            :local chatID "chat_id";
+            /tool fetch url="https://api.telegram.org/bot$token/sendMessage?chat_id=$chatID&text=$encodedMessage" keep-result=no;
+        }
+    }
+
+    # Pausa para evitar saturar el router
+    :delay 10s; # Ajusta este valor según el intervalo deseado
+}
