@@ -1,0 +1,8 @@
+
+:global telegramMessage
+:local botid
+:local chatid
+set botid "bot_ID"
+set chatid "Chat_ID"
+/tool fetch url="https://api.telegram.org/bot$botid/sendMessage\?chat_id=$chatid&text=$telegramMessage" keep-result=no
+
