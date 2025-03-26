@@ -1,0 +1,2 @@
+global telegramMessage "Impresora encendida"
+/system script run Telegram
