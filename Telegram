@@ -1,3 +1,4 @@
+#Diseñado para script netwatch
 
 :global telegramMessage
 :local botid
