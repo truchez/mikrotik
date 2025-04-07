@@ -1,5 +1,3 @@
-#Para usar este script hay que ejecutar un schedule "startup" con "on event" nombre del script, pe "Login.vitaminado" para que el script funcione tras un reinicio o apagado del router
-
 :global lastProcessedLog; # Variable global para almacenar el último log procesado
 
 :while (true) do={
@@ -33,13 +31,13 @@
 
             # Clasifica el tipo de evento
             :if ($logMessage ~ "logged in") do={
-                :set eventType "Exitoso";
+                :set eventType "%E2%9C%85 Exitoso"; # ✅ codificado correctamente
                 :set username [:pick $logMessage 5 [:find $logMessage " logged"]];
                 :set ip [:pick $logMessage ([:find $logMessage "from "] + 5) [:find $logMessage " via"]];
                 :set details ("Usuario: " . $username . "%0AIP: " . $ip);
             } else={
                 :if ($logMessage ~ "login failure for user") do={
-                    :set eventType "Fallido";
+                    :set eventType "%E2%9D%8C Fallido"; # ❌ codificado correctamente
                     :set username [:pick $logMessage ([:find $logMessage "user "] + 5) [:find $logMessage " from"]];
                     :set ip [:pick $logMessage ([:find $logMessage "from "] + 5) [:find $logMessage " via"]];
                     :set details ("Usuario: " . $username . "%0AIP: " . $ip);
@@ -70,9 +68,9 @@
                 }
             }
 
-            # Envía el mensaje a Telegram @Cambia estos valores tokenID y ChatID por los tuyos@
-            :local token "tokenID";
-            :local chatID "ChatID";
+            # Envía el mensaje a Telegram
+            :local token "8171850337:AAEBT0CKDQDFrShUnn1UewbEHpmu2wltjU8";
+            :local chatID "-4786019588";
             /tool fetch url=("https://api.telegram.org/bot" . $token . "/sendMessage?chat_id=" . $chatID . "&text=" . $encodedMessage) keep-result=no;
         }
     }
