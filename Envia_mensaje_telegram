@@ -1,3 +1,4 @@
+#Diseñado para el script dhcp_script
 
 :global telegramMessage
 :local botid
