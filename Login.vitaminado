@@ -69,8 +69,8 @@
             }
 
             # Envía el mensaje a Telegram
-            :local token "8171850337:AAEBT0CKDQDFrShUnn1UewbEHpmu2wltjU8";
-            :local chatID "-4786019588";
+            :local token "tokenID";
+            :local chatID "ChatID";
             /tool fetch url=("https://api.telegram.org/bot" . $token . "/sendMessage?chat_id=" . $chatID . "&text=" . $encodedMessage) keep-result=no;
         }
     }
