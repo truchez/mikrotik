@@ -1,0 +1,82 @@
+#Para usar este script hay que ejecutar un schedule "startup" con "on event" nombre del script, pe "Login.vitaminado" para que el script funcione tras un reinicio o apagado del router
+
+:global lastProcessedLog; # Variable global para almacenar el último log procesado
+
+:while (true) do={
+    # Encuentra todos los logs relevantes (inicios de sesión, intentos fallidos, cambios de configuración)
+    :local logs [/log find where (message~"logged in" || message~"login failure for user" || message~"configuration")];
+
+    # Verifica si hay logs válidos
+    :if ([:len $logs] > 0) do={
+        # Toma el último log de la lista
+        :local lastLog [:pick $logs ([:len $logs] - 1)];
+
+        # Verifica si el identificador del log es válido y si no ha sido procesado
+        :if ([:len $lastLog] > 0 && $lastLog != $lastProcessedLog) do={
+            :set lastProcessedLog $lastLog; # Actualiza la variable global con el nuevo log procesado
+            :local logMessage [/log get $lastLog message];
+
+            # Variables para el mensaje
+            :local eventType "";
+            :local details "";
+            :local username "";
+            :local ip "";
+            :local routerIdentity [/system identity get name];
+            :local currentDate [/system clock get date];
+            :local currentTime [/system clock get time];
+
+            # Reformatea la fecha a dd-mm-aaaa
+            :local day [:pick $currentDate 8 10];
+            :local month [:pick $currentDate 5 7];
+            :local year [:pick $currentDate 0 4];
+            :local formattedDate ($day . "-" . $month . "-" . $year);
+
+            # Clasifica el tipo de evento
+            :if ($logMessage ~ "logged in") do={
+                :set eventType "Exitoso";
+                :set username [:pick $logMessage 5 [:find $logMessage " logged"]];
+                :set ip [:pick $logMessage ([:find $logMessage "from "] + 5) [:find $logMessage " via"]];
+                :set details ("Usuario: " . $username . "%0AIP: " . $ip);
+            } else={
+                :if ($logMessage ~ "login failure for user") do={
+                    :set eventType "Fallido";
+                    :set username [:pick $logMessage ([:find $logMessage "user "] + 5) [:find $logMessage " from"]];
+                    :set ip [:pick $logMessage ([:find $logMessage "from "] + 5) [:find $logMessage " via"]];
+                    :set details ("Usuario: " . $username . "%0AIP: " . $ip);
+                }
+            }
+
+            # Construye el mensaje formateado
+            :local formattedMessage ("Fecha: " . $formattedDate . "%0AHora: " . $currentTime . "%0AInicio de sesión detectado: " . $eventType . "%0A" . $details . "%0ARouter: " . $routerIdentity);
+
+            # Codifica el mensaje para Telegram
+            :local encodedMessage "";
+            :for i from=0 to=([:len $formattedMessage] - 1) do={
+                :local char [:pick $formattedMessage $i];
+                :if ($char = " ") do={ :set encodedMessage ($encodedMessage . "%20"); } else={
+                    :if ($char = "ñ") do={ :set encodedMessage ($encodedMessage . "%C3%B1"); } else={
+                        :if ($char = "á") do={ :set encodedMessage ($encodedMessage . "%C3%A1"); } else={
+                            :if ($char = "é") do={ :set encodedMessage ($encodedMessage . "%C3%A9"); } else={
+                                :if ($char = "í") do={ :set encodedMessage ($encodedMessage . "%C3%AD"); } else={
+                                    :if ($char = "ó") do={ :set encodedMessage ($encodedMessage . "%C3%B3"); } else={
+                                        :if ($char = "ú") do={ :set encodedMessage ($encodedMessage . "%C3%BA"); } else={
+                                            :set encodedMessage ($encodedMessage . $char);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Envía el mensaje a Telegram
+            :local token "tokenID";
+            :local chatID "ChatID";
+            /tool fetch url=("https://api.telegram.org/bot" . $token . "/sendMessage?chat_id=" . $chatID . "&text=" . $encodedMessage) keep-result=no;
+        }
+    }
+
+    # Pausa para evitar saturar el router
+    :delay 10s;
+}
