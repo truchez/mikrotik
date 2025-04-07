@@ -1,2 +1,4 @@
+#Necesirarás usar el escript Telegram
+
 global telegramMessage "Impresora encendida"
 /system script run Telegram
