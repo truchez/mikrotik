@@ -1,0 +1,86 @@
+# Script WAN Monitor DDNS Necesitas 2 routers mikrotik para que sea usable
+# Necesitas un Scheduler "startup" para que se autoinicie al reiniciar o iniciar el router
+# Tienes que usar 2 DDNS, la de cloud "xxxx.sn.mynetname.net" te valen, en el Router A colocas la DDNS del Router B y viceversa
+
+#Cambia este valor
+:local botToken "botID"
+#Cambia este valor
+:local chatID "ChatID"
+#Cambia este valor
+:local targetDDNS "tuddns.nomelase.org"
+
+#No toques a no ser que sepas que estás haciendo
+:local myName [/system identity get name]
+
+:global isDead
+
+:if ([:typeof $isDead] = "nothing") do={ 
+    :set isDead false 
+}
+
+:while (true) do={
+
+    :local date [/system clock get date]
+    :local time [/system clock get time]
+
+    # Capturamos resolve seguro
+    :local resolvedIP
+    :do {
+        :set resolvedIP [:resolve $targetDDNS]
+    } on-error={
+        :set resolvedIP ""
+    }
+
+    :if ($resolvedIP != "") do={
+
+        :local pingResult [/ping address=$resolvedIP count=3]
+
+        :if ($pingResult = 0) do={
+
+            # No responde al ping
+            :if ($isDead = false) do={
+
+                :set isDead true
+
+                :local message ("%F0%9F%9F%A5%20CAIDA%0APing:%20No%20responde%0AFecha:%20" . $date . "%0AHora:%20" . $time . "%0ADDNS:%20" . $targetDDNS . "%0ARouter:%20" . $myName)
+
+                /tool fetch url=("https://api.telegram.org/bot" . $botToken . "/sendMessage?chat_id=" . $chatID . "&text=" . $message) keep-result=no
+
+                :log warning "$targetDDNS detectado como CAIDO (ping). Alerta enviada."
+            }
+            # SI ya estaba muerto, NO hacer nada (ni hablar)
+
+        } else={
+
+            # Sí responde al ping
+            :if ($isDead = true) do={
+
+                :set isDead false
+
+                :local message ("%F0%9F%9F%A9%20RECUPERADO%0APing:%20OK%0AFecha:%20" . $date . "%0AHora:%20" . $time . "%0ADDNS:%20" . $targetDDNS . "%0ARouter:%20" . $myName)
+
+                /tool fetch url=("https://api.telegram.org/bot" . $botToken . "/sendMessage?chat_id=" . $chatID . "&text=" . $message) keep-result=no
+
+                :log warning "$targetDDNS detectado como RECUPERADO. Alerta enviada."
+            }
+            # SI ya estaba vivo, NO hacer nada (ni hablar)
+        }
+
+    } else={
+
+        # No se resolvió DNS
+        :if ($isDead = false) do={
+
+            :set isDead true
+
+            :local message ("%F0%9F%9A%AB%20PROHIBIDO%0APing:%20No%20resuelve%20DNS%0AFecha:%20" . $date . "%0AHora:%20" . $time . "%0ADDNS:%20" . $targetDDNS . "%0ARouter:%20" . $myName)
+
+            /tool fetch url=("https://api.telegram.org/bot" . $botToken . "/sendMessage?chat_id=" . $chatID . "&text=" . $message) keep-result=no
+
+            :log warning "$targetDDNS no resuelve DNS. Alerta enviada."
+        }
+        # SI ya estaba muerto, NO hacer nada
+    }
+
+    /delay 60s
+}
