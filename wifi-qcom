@@ -1,0 +1,54 @@
+#Controla todos los acceso a wireless esceptuando los ingresados en Acces List ~Para modelos con el paquete wifi-qcom; si usas el paquete wireless busca la otra alternativa~
+:local telegramBotToken "7102337844:AAGdSyxkzEvdImgalNQF0tsjaTnUN8knba0"
+:local telegramChatID "-4727384727"
+:local nombreRouter [/system identity get name]
+
+# Aquí defines tu lista blanca manual de MACs conocidas
+:local listaBlanca {"AA:BB:CC:DD:EE:FF"; "11:22:33:44:55:66"}
+
+# Para evitar enviar múltiples mensajes por la misma MAC
+:local macNotificadas ""
+
+# Recorrer dispositivos conectados a WiFiWave2
+:foreach i in=[/interface wifiwave2 registration-table find] do={
+
+    :local macActual [/interface wifiwave2 registration-table get $i mac-address]
+    :local hostActual "Desconocido"
+
+    # Verificar si la MAC ya fue notificada
+    :local yaNotificada false
+    :if ([:find $macNotificadas $macActual] >= 0) do={
+        :set yaNotificada true
+    }
+
+    # Si no fue notificada
+    :if ($yaNotificada = false) do={
+
+        # Verificar si está en la lista blanca
+        :local estaEnListaBlanca false
+        :foreach item in=$listaBlanca do={
+            :if ($item = $macActual) do={
+                :set estaEnListaBlanca true
+            }
+        }
+
+        # Solo si NO está permitido
+        :if ($estaEnListaBlanca = false) do={
+
+            # Buscar Hostname en DHCP si existe
+            :foreach lease in=[/ip dhcp-server lease find where mac-address=$macActual] do={
+                :set hostActual [/ip dhcp-server lease get $lease host-name]
+            }
+
+            # Preparar mensaje limpio para Telegram
+            :local mensaje ("Router:%20" . $nombreRouter . "%0AMac:%20" . $macActual . "%0AHostname:%20" . $hostActual)
+
+            :local url ("https://api.telegram.org/bot" . $telegramBotToken . "/sendMessage?chat_id=" . $telegramChatID . "&text=" . $mensaje)
+
+            /tool fetch url=$url keep-result=no
+
+            # Agregar MAC a notificadas para evitar repetir
+            :set macNotificadas ($macNotificadas . "," . $macActual)
+        }
+    }
+}
