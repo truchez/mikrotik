@@ -1,0 +1,66 @@
+#Controla todos los acceso a wireless esceptuando los ingresados en Acces List ~Para modelos con el paquete wireless; si usas el paquete wifi-qcom busca la otra alternativa~
+:local telegramBotToken "tokenID"
+:local telegramChatID "chatID"
+:local nombreRouter [/system identity get name]
+
+# Tabla de MACs ya notificadas
+:local macNotificadas ""
+
+# Hora actual
+:local ahora [/system clock get time]
+:local ahoraSec ([:tonum [:pick $ahora 0 2]] * 3600 + [:tonum [:pick $ahora 3 5]] * 60 + [:tonum [:pick $ahora 6 8]])
+
+# Recorrer logs de conexiones
+:foreach logEntry in=[/log find where message~"connected" && topics~"wireless"] do={
+
+    :local logTime [/log get $logEntry time]
+    :local logSec ([:tonum [:pick $logTime 0 2]] * 3600 + [:tonum [:pick $logTime 3 5]] * 60 + [:tonum [:pick $logTime 6 8]])
+
+    # Solo eventos recientes
+    :if (($ahoraSec - $logSec) < 3600) do={
+
+        :local logMessage [/log get $logEntry message]
+
+        # Extraer MAC
+        :local macEnd [:find $logMessage "@"]
+        :local macAddress [:pick $logMessage 0 $macEnd]
+
+        # Verificar si ya fue notificada
+        :local yaNotificada false
+        :if ([:find $macNotificadas $macAddress] >= 0) do={
+            :set yaNotificada true
+        }
+
+        # Solo seguir si no fue notificada antes
+        :if ($yaNotificada = false) do={
+
+            # Verificar si está en Access List
+            :local estaEnAccessList false
+            :foreach item in=[/interface wireless access-list find] do={
+                :if ([/interface wireless access-list get $item mac-address] = $macAddress) do={
+                    :set estaEnAccessList true
+                }
+            }
+
+            # Solo enviar alerta si no está en Access List
+            :if ($estaEnAccessList = false) do={
+
+                # Buscar Hostname
+                :local hostActual "Desconocido"
+                :foreach lease in=[/ip dhcp-server lease find where mac-address=$macAddress] do={
+                    :set hostActual [/ip dhcp-server lease get $lease host-name]
+                }
+
+                # Formatear mensaje
+                :local mensaje ("Router:%20" . $nombreRouter . "%0AMac:%20" . $macAddress . "%0AHostname:%20" . $hostActual)
+
+                :local url ("https://api.telegram.org/bot" . $telegramBotToken . "/sendMessage?chat_id=" . $telegramChatID . "&text=" . $mensaje)
+
+                /tool fetch url=$url keep-result=no
+
+                # Agregar MAC a las notificadas
+                :set macNotificadas ($macNotificadas . "," . $macAddress)
+            }
+        }
+    }
+}
