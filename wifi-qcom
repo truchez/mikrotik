@@ -1,6 +1,6 @@
 #Controla todos los acceso a wireless esceptuando los ingresados en Acces List ~Para modelos con el paquete wifi-qcom; si usas el paquete wireless busca la otra alternativa~
-:local telegramBotToken "7102337844:AAGdSyxkzEvdImgalNQF0tsjaTnUN8knba0"
-:local telegramChatID "-4727384727"
+:local telegramBotToken "TokenID"
+:local telegramChatID "ChatID"
 :local nombreRouter [/system identity get name]
 
 # Aquí defines tu lista blanca manual de MACs conocidas
